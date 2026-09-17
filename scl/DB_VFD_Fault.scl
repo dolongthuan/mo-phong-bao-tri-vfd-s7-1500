@@ -1,0 +1,43 @@
+DATA_BLOCK "DB_VFD_Fault"
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+NON_RETAIN
+// QUAN TRONG: DB nay PHAI o che do "Standard - compatible" (khong toi uu hoa).
+// Sau khi Generate blocks from source, mo DB > chuot phai > Properties > Attributes
+// > bo tick "Optimized block access". Neu con optimized, python-snap7 doc offset
+// se ra sai gia tri ma KHONG bao loi (loi kho phat hien nhat).
+//
+// Chi con 2 nut mo phong loi: lỗi dòng (Overcurrent) va lỗi nhiệt (Overtemperature) -
+// moi nut chi lam tang dung 1 gia tri tuong ung (Current_A hoac Temperature_C).
+//
+// Thu tu bien duoc thiet ke co y de offset de doan (xem docs-thiet-ke/Worksheet-Thiet-Ke-DB-Mo-Phong.md):
+//   Byte 0, bit 0 : SimButton_OverCurrent      (nut loi dong)
+//   Byte 0, bit 1 : FaultActive
+//   Byte 0, bit 2 : ResetFault
+//   Byte 0, bit 3 : SimButton_Overtemperature  (nut loi nhiet)
+//   Byte 0, bit 4 : CurrentFaultLatched        (noi bo FB - dang loi dong)
+//   Byte 0, bit 5 : TemperatureFaultLatched    (noi bo FB - dang loi nhiet)
+//   Byte 2        : FaultCode   (Int can byte chan, TIA se tu chen padding byte 1)
+//   Byte 4        : FaultEventID (Int)
+//   Byte 6, bit 0 : SystemOn (Int/Real can byte chan, TIA se tu chen padding con lai cua byte 6-7)
+//   Byte 8        : Current_A (Real)
+//   Byte 12       : Temperature_C (Real)
+// Sau khi Generate blocks from source, BAT BUOC mo view "Extended" trong TIA de
+// xac nhan lai offset that roi doi tuong ung trong python-bridge/.env neu khac.
+VAR
+   SimButton_OverCurrent : Bool;      // Nut nhan mo phong loi dong (Overcurrent) - ep TRUE qua Watch Table (giu >=1 chu ky quet roi tha ve FALSE)
+   FaultActive : Bool;                // TRUE = dang co loi (latch boi FB_SimulateVFDFault) - python-bridge doc bit nay
+   ResetFault : Bool;                 // Ghi TRUE (tu Watch Table hoac python-bridge) de xoa loi - FB tu dua ve FALSE sau 1 chu ky
+   SimButton_Overtemperature : Bool;  // Nut nhan mo phong loi nhiet (Overtemperature) - ep TRUE qua Watch Table (giu >=1 chu ky quet roi tha ve FALSE)
+   CurrentFaultLatched : Bool;        // Noi bo (FB dung): TRUE khi loi dang active la loi dong - dieu khien Current_A
+   TemperatureFaultLatched : Bool;    // Noi bo (FB dung): TRUE khi loi dang active la loi nhiet - dieu khien Temperature_C
+   FaultCode : Int;                   // 0 = khong loi, 1 = loi dong, 2 = loi nhiet - xem python-bridge/data/fault_codes_v20.json
+   FaultEventID : Int;                // Tang dan moi lan co loi MOI, phuc vu truy vet nhat ky
+   SystemOn : Bool;                   // Nut ON/OFF he thong - TRUE = dang chay, mo phong dong dien/nhiet do binh thuong
+   Current_A : Real;                  // Dong dien mo phong (A) - binh thuong 8.0, canh bao mac dinh khi vuot 15.0
+   Temperature_C : Real;              // Nhiet do mo phong (do C) - binh thuong 50.0, canh bao mac dinh khi vuot 90.0
+END_VAR
+
+BEGIN
+
+END_DATA_BLOCK

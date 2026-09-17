@@ -1,0 +1,21 @@
+# Ket noi PLC S7-1500 qua PUT/GET
+python-snap7>=1.3
+
+# Doc file .env
+python-dotenv>=1.0
+
+# HTTP client cho Telegram Bot API va cac tich hop web
+requests>=2.31
+
+# Text-to-speech cho ham voice alert tuy chon trong notifier_telegram.py
+gTTS>=2.5
+
+# Goi dien thoai that qua Twilio Voice (optional - chi can neu dien TWILIO_* trong .env)
+twilio>=9.0
+
+# Chup anh tu webcam laptop de gui kem canh bao Telegram - xem camera_capture.py
+opencv-python>=4.9
+
+# SSH toi Termux tren dien thoai de kich hoat rung + thong bao goc Android
+# (Termux:API) - xem notifier_termux.py
+paramiko>=3.4

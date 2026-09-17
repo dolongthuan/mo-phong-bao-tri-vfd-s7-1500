@@ -1,0 +1,132 @@
+FUNCTION_BLOCK "FB_SimulateVFDFault"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.7
+// Goi khoi nay moi chu ky quet trong OB1 (Main), khong can tham so IN/OUT -
+// doc/ghi truc tiep "DB_VFD_Fault" vi day chi la logic mo phong don gian cho do an.
+// Tao 1 Instance DB rieng khi keo vao OB1 (vi du "IDB_SimulateVFDFault").
+//
+// Chi con 2 nut loi doc lap voi nhau, CHI CO TAC DUNG KHI SystemOn = TRUE
+// (may chua bat thi khong the "qua dong"/"qua nhiet"):
+//   - SimButton_OverCurrent     (nut loi dong)  -> chi day Current_A len, khong dung Temperature_C
+//   - SimButton_Overtemperature (nut loi nhiet)  -> chi day Temperature_C len, khong dung Current_A
+//
+// Current_A/Temperature_C KHONG con nhay tuc thi - moi RAMP_STEP_TIME (500ms)
+// tang/giam dan 1 buoc (CURRENT_STEP/TEMPERATURE_STEP):
+//   - SystemOn = FALSE                -> giam dan ve 0.0 (may tat)
+//   - SystemOn = TRUE, khong co loi   -> tien ve gia tri binh thuong (Current_A=8.0, Temperature_C=50.0), tu duoi len hoac tu tren xuong (vd sau khi Reset)
+//   - SystemOn = TRUE, loi dang active-> TANG LIEN TUC KHONG GIOI HAN (khong co tran) cho toi khi ResetFault
+// Tat SystemOn (OFF) hoac ResetFault se xoa loi dang active (FaultActive/FaultCode ve 0,
+// gia tri tu dong giam dan ve lai binh thuong/0 theo nhanh tren).
+VAR
+   risingEdgeButton : R_TRIG;            // Nut loi dong (Overcurrent)
+   risingEdgeOvertemperature : R_TRIG;    // Nut loi nhiet (Overtemperature)
+   rampTimer : TON;                      // Tao xung dieu khien moi RAMP_STEP_TIME
+   rampPulse : Bool;                     // Bien trung gian giu Q chu ky truoc - tranh tu tham chieu #rampTimer.Q lam IN cho chinh no
+   CURRENT_NORMAL : Real := 8.0;         // Dong dien binh thuong (A)
+   TEMPERATURE_NORMAL : Real := 50.0;    // Nhiet do binh thuong (do C)
+   CURRENT_STEP : Real := 0.5;           // Dong dien tang/giam moi buoc (A)
+   TEMPERATURE_STEP : Real := 1.5;       // Nhiet do tang/giam moi buoc (do C)
+   RAMP_STEP_TIME : Time := T#500ms;     // Chu ky 1 buoc tang/giam
+END_VAR
+
+BEGIN
+   // Nhan nut mo phong loi dong -> chi tinh khi SystemOn=TRUE (may dang chay)
+   #risingEdgeButton(CLK := "DB_VFD_Fault".SimButton_OverCurrent);
+   IF #risingEdgeButton.Q AND "DB_VFD_Fault".SystemOn THEN
+      "DB_VFD_Fault".FaultActive := TRUE;
+      "DB_VFD_Fault".FaultCode := 1; // 1 = Loi dong (Overcurrent) - xem fault_codes_v20.json
+      "DB_VFD_Fault".FaultEventID := "DB_VFD_Fault".FaultEventID + 1;
+      "DB_VFD_Fault".CurrentFaultLatched := TRUE;
+      "DB_VFD_Fault".TemperatureFaultLatched := FALSE;
+   END_IF;
+
+   // Nhan nut mo phong loi nhiet -> chi tinh khi SystemOn=TRUE (may dang chay)
+   #risingEdgeOvertemperature(CLK := "DB_VFD_Fault".SimButton_Overtemperature);
+   IF #risingEdgeOvertemperature.Q AND "DB_VFD_Fault".SystemOn THEN
+      "DB_VFD_Fault".FaultActive := TRUE;
+      "DB_VFD_Fault".FaultCode := 2; // 2 = Loi nhiet (Overtemperature) - xem fault_codes_v20.json
+      "DB_VFD_Fault".FaultEventID := "DB_VFD_Fault".FaultEventID + 1;
+      "DB_VFD_Fault".TemperatureFaultLatched := TRUE;
+      "DB_VFD_Fault".CurrentFaultLatched := FALSE;
+   END_IF;
+
+   // Xoa loi: Watch Table hoac python-bridge ghi ResetFault := TRUE - cung tha
+   // luon 2 nut loi ve FALSE (phong truong hop ep qua Watch Table quen tha nut)
+   IF "DB_VFD_Fault".ResetFault THEN
+      "DB_VFD_Fault".FaultActive := FALSE;
+      "DB_VFD_Fault".FaultCode := 0;
+      "DB_VFD_Fault".CurrentFaultLatched := FALSE;
+      "DB_VFD_Fault".TemperatureFaultLatched := FALSE;
+      "DB_VFD_Fault".SimButton_OverCurrent := FALSE;
+      "DB_VFD_Fault".SimButton_Overtemperature := FALSE;
+      "DB_VFD_Fault".ResetFault := FALSE;
+   END_IF;
+
+   // Tat he thong thi tu dong xoa loi luon (khong the "dang loi" khi may da tat)
+   IF NOT "DB_VFD_Fault".SystemOn THEN
+      "DB_VFD_Fault".FaultActive := FALSE;
+      "DB_VFD_Fault".FaultCode := 0;
+      "DB_VFD_Fault".CurrentFaultLatched := FALSE;
+      "DB_VFD_Fault".TemperatureFaultLatched := FALSE;
+   END_IF;
+
+   // Timer tu dao (self-retrigger) qua bien trung gian rampPulse - KHONG doc truc
+   // tiep #rampTimer.Q lam IN cho chinh no (mot so ban SCL xu ly tu tham chieu
+   // nay khong on dinh, khien Q khong bao gio thuc su len TRUE).
+   #rampTimer(IN := NOT #rampPulse, PT := #RAMP_STEP_TIME);
+   #rampPulse := #rampTimer.Q;
+   IF #rampTimer.Q THEN
+      // ----- Dong dien -----
+      IF NOT "DB_VFD_Fault".SystemOn THEN
+         // May tat: giam dan ve 0.0
+         IF "DB_VFD_Fault".Current_A > 0.0 THEN
+            "DB_VFD_Fault".Current_A := "DB_VFD_Fault".Current_A - #CURRENT_STEP;
+            IF "DB_VFD_Fault".Current_A < 0.0 THEN
+               "DB_VFD_Fault".Current_A := 0.0;
+            END_IF;
+         END_IF;
+      ELSIF "DB_VFD_Fault".CurrentFaultLatched THEN
+         // Dang loi dong: tang lien tuc, KHONG gioi han tran
+         "DB_VFD_Fault".Current_A := "DB_VFD_Fault".Current_A + #CURRENT_STEP;
+      ELSE
+         // Binh thuong: tien ve CURRENT_NORMAL (8.0) - tu duoi len (moi bat may)
+         // hoac tu tren xuong (vua Reset sau khi loi tang cao)
+         IF "DB_VFD_Fault".Current_A < #CURRENT_NORMAL THEN
+            "DB_VFD_Fault".Current_A := "DB_VFD_Fault".Current_A + #CURRENT_STEP;
+            IF "DB_VFD_Fault".Current_A > #CURRENT_NORMAL THEN
+               "DB_VFD_Fault".Current_A := #CURRENT_NORMAL;
+            END_IF;
+         ELSIF "DB_VFD_Fault".Current_A > #CURRENT_NORMAL THEN
+            "DB_VFD_Fault".Current_A := "DB_VFD_Fault".Current_A - #CURRENT_STEP;
+            IF "DB_VFD_Fault".Current_A < #CURRENT_NORMAL THEN
+               "DB_VFD_Fault".Current_A := #CURRENT_NORMAL;
+            END_IF;
+         END_IF;
+      END_IF;
+
+      // ----- Nhiet do ----- (tuong tu dong dien, muc binh thuong 50.0)
+      IF NOT "DB_VFD_Fault".SystemOn THEN
+         IF "DB_VFD_Fault".Temperature_C > 0.0 THEN
+            "DB_VFD_Fault".Temperature_C := "DB_VFD_Fault".Temperature_C - #TEMPERATURE_STEP;
+            IF "DB_VFD_Fault".Temperature_C < 0.0 THEN
+               "DB_VFD_Fault".Temperature_C := 0.0;
+            END_IF;
+         END_IF;
+      ELSIF "DB_VFD_Fault".TemperatureFaultLatched THEN
+         // Dang loi nhiet: tang lien tuc, KHONG gioi han tran
+         "DB_VFD_Fault".Temperature_C := "DB_VFD_Fault".Temperature_C + #TEMPERATURE_STEP;
+      ELSE
+         IF "DB_VFD_Fault".Temperature_C < #TEMPERATURE_NORMAL THEN
+            "DB_VFD_Fault".Temperature_C := "DB_VFD_Fault".Temperature_C + #TEMPERATURE_STEP;
+            IF "DB_VFD_Fault".Temperature_C > #TEMPERATURE_NORMAL THEN
+               "DB_VFD_Fault".Temperature_C := #TEMPERATURE_NORMAL;
+            END_IF;
+         ELSIF "DB_VFD_Fault".Temperature_C > #TEMPERATURE_NORMAL THEN
+            "DB_VFD_Fault".Temperature_C := "DB_VFD_Fault".Temperature_C - #TEMPERATURE_STEP;
+            IF "DB_VFD_Fault".Temperature_C < #TEMPERATURE_NORMAL THEN
+               "DB_VFD_Fault".Temperature_C := #TEMPERATURE_NORMAL;
+            END_IF;
+         END_IF;
+      END_IF;
+   END_IF;
+END_FUNCTION_BLOCK

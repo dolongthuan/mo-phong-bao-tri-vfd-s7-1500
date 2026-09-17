@@ -1,0 +1,59 @@
+{
+  "1": {
+    "code_tham_khao": "F1",
+    "ten_vi": "Quá dòng (Overcurrent)",
+    "ten_en": "Overcurrent",
+    "mo_ta": "Dòng điện đầu ra biến tần vượt ngưỡng giới hạn cho phép, biến tần tự ngắt để bảo vệ IGBT và động cơ.",
+    "nguyen_nhan_thuong_gap": [
+      "Ngắn mạch pha động cơ hoặc cáp động cơ",
+      "Tải cơ khí tăng đột ngột hoặc kẹt cơ khí",
+      "Thời gian tăng tốc (ramp-up) đặt quá ngắn so với quán tính tải",
+      "Cài đặt sai thông số động cơ (nhóm P0304-P0311: dòng định mức)"
+    ],
+    "khuyen_nghi_xu_ly": [
+      "Kiểm tra cách điện cáp động cơ và cuộn dây động cơ",
+      "Kiểm tra tải cơ khí có bị kẹt hoặc quá tải không",
+      "Tăng thời gian ramp-up (P1120) nếu độ gia tốc quá nhanh",
+      "Đối chiếu lại thông số động cơ trong nhóm P0304-P0311"
+    ],
+    "khuyen_nghi_ngan": [
+      "kiểm tra cách điện và cuộn dây động cơ",
+      "kiểm tra tải có bị kẹt không",
+      "tăng thời gian ramp-up",
+      "đối chiếu thông số động cơ"
+    ],
+    "manual_reference": {
+      "document": "SINAMICS V20 Inverter - Getting Started (A5E03728127, 07/2012)",
+      "section_hint": "Chương 6 - Fault and warning codes - Fault code list (F1 = Overcurrent)",
+      "page_hint": "Trang 59",
+      "verified": true
+    }
+  },
+  "2": {
+    "code_tham_khao": "F4",
+    "ten_vi": "Quá nhiệt thiết bị (Overtemperature)",
+    "ten_en": "Inverter overtemperature",
+    "mo_ta": "Nhiệt độ heatsink / module công suất của biến tần vượt ngưỡng cho phép.",
+    "nguyen_nhan_thuong_gap": [
+      "Quạt làm mát không hoạt động hoặc bị hỏng",
+      "Tải cao kéo dài",
+      "Môi trường lắp đặt quá nóng hoặc thông gió kém"
+    ],
+    "khuyen_nghi_xu_ly": [
+      "Kiểm tra quạt làm mát của biến tần",
+      "Giảm tải hoặc thời gian hoạt động liên tục",
+      "Cải thiện thông gió tủ điện, đảm bảo khoảng cách lắp đặt tối thiểu (xem Technical specifications)"
+    ],
+    "khuyen_nghi_ngan": [
+      "kiểm tra quạt làm mát",
+      "giảm tải hoặc thời gian chạy",
+      "cải thiện thông gió tủ điện"
+    ],
+    "manual_reference": {
+      "document": "SINAMICS V20 Inverter - Getting Started (A5E03728127, 07/2012)",
+      "section_hint": "Chương 6 - Fault and warning codes - Fault code list (F4 = Inverter overtemperature)",
+      "page_hint": "Trang 59",
+      "verified": true
+    }
+  }
+}
